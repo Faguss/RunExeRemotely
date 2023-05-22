@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 #include <windows.h>
 #include <tlhelp32.h>
 
@@ -152,8 +153,9 @@ DWORD GetProcessID(wstring exename)
 	return pid;
 };
 
-HWND GetFirstWindowFromProcessID(DWORD wanted_pid)
+vector<HWND> GetWindowsFromProcessID(DWORD wanted_pid)
 {
+	vector<HWND> container;
 	HWND current_hwnd = NULL;
 
 	do {
@@ -163,41 +165,95 @@ HWND GetFirstWindowFromProcessID(DWORD wanted_pid)
 		GetWindowThreadProcessId(current_hwnd, &current_pid);
 
 		if (current_pid == wanted_pid)
-			return current_hwnd;
+			container.push_back(current_hwnd);
 	} while (current_hwnd != NULL);
 
-	return NULL;
+	return container;
+}
+
+vector<wstring> Tokenize(wstring text, wstring delimiter)
+{
+	vector<wstring> container;
+	bool first_item   = false;
+	bool inQuote      = false;
+	char custom_delim = ' ';
+	bool use_unQuote  = true;
+	size_t word_start = 0;
+	bool word_started = false;
+	
+	// Split line into parts
+	for (size_t pos=0;  pos<=text.length();  pos++) {
+		bool isToken = pos == text.length();
+		
+		for (size_t i=0;  !isToken && i<delimiter.length();  i++)
+			if (text.substr(pos,1) == delimiter.substr(i,1))
+				isToken = true;
+				
+		if (text.substr(pos,1) == L"\"")
+			inQuote = !inQuote;
+			
+		// Mark beginning of the word
+		if (!isToken  &&  !word_started) {
+			word_start   = pos;
+			word_started = true;
+		}
+
+		// Mark end of the word
+		if (isToken  &&  word_started  &&  !inQuote) {
+			container.push_back(text.substr(word_start, pos-word_start));
+			word_started = false;
+		}
+	}
+
+	return container;
 }
 
 int wmain(int argc, wchar_t** argv)
 {
 	DWORD sleep_time = 5000;
 	wstring exe_name = L"coldwarassault_server.exe";
-	wstring url      = L"https://ofp-faguss.com/ofpserverremote.txt";
+	wstring url      = L"";
 
-	for (int i=1; i<argc; i++) {
-		wstring namevalue = (wstring)argv[i];
+	// Merge local config file and command line arguments into a single list
+	vector<wstring> input_config = Tokenize(Read(L"RunExeRemotely.cfg"), L"\n;");
+
+	for (int i=1; i<argc; i++) 
+		input_config.push_back((wstring)argv[i]);
+
+	// Parse configuration
+	for (size_t i=0; i<input_config.size(); i++) {
+		wstring namevalue = (wstring)input_config[i];
 		size_t separator  = namevalue.find_first_of('=');
 
 		if (separator != string::npos) {
 			wstring name  = namevalue.substr(0, separator);
 			wstring value = namevalue.substr(separator + 1);
 
-			if (name == L"-sleep") {
+			if (name.substr(0,1) == L"-")
+				name = name.substr(1);
+
+			wcout << name << L"=" << value << endl;
+
+			if (name == L"sleep") {
 				sleep_time = wcstoul(value.c_str(), NULL, 0) * 1000;
 				continue;
 			}
 
-			if (name == L"-exe") {
+			if (name == L"exe") {
 				exe_name = value;
 				continue;
 			}
 
-			if (name == L"-url") {
+			if (name == L"url") {
 				url = value;
 				continue;
 			}
 		}
+	}
+
+	if (url.empty()) {
+		cout << "Missing -url= argument!" << endl;
+		return 1;
 	}
 
 	wstring turnoff_signal    = L"?turnoff";
@@ -207,7 +263,7 @@ int wmain(int argc, wchar_t** argv)
 	bool show_message         = true;
 
 	if (pid)
-		last_mode = DownloadAndRead(url, download_filename);	// if server is already running then assume it's the correct one and don't restart
+		last_mode = DownloadAndRead(url, download_filename);	// if the server is already running then assume it's the correct one and don't restart
 	else
 		last_mode = L"";
 
@@ -218,47 +274,31 @@ int wmain(int argc, wchar_t** argv)
 
 		//data was downloaded AND (selected option has changed OR process is not running and option other than turnoff was selected OR process is running and turnoff option was selected)
 
-		if (new_mode!=L"" && (last_mode != new_mode || (!pid && new_mode != turnoff_signal) || (new_mode == turnoff_signal && pid))) {
+		if (new_mode != L"" && (last_mode != new_mode || (!pid && new_mode != turnoff_signal) || (new_mode == turnoff_signal && pid))) {
 			if (last_mode != new_mode && show_message) {
-				wcout << L"Selected new option: " << new_mode << endl;
+				wcout << L"Selected new option" << endl;
 				show_message = false;
 			}
 
 			if (pid) {
-				HWND window = GetFirstWindowFromProcessID(pid);
+				vector<HWND> windows = GetWindowsFromProcessID(pid);
 
-				if (window) {
-					PostMessage(window, WM_CLOSE, 0, 0);
+				if (windows.size() > 0) {
 					cout << "Tell pid " << pid << " to close" << endl;
+
+					for (size_t i=0; i<windows.size(); i++) 
+						PostMessage(windows[i], WM_CLOSE, 0, 0);
 				}
 			} else {
 				if (new_mode != turnoff_signal) {
 					wcout << "Start " << exe_name << " " << new_mode << endl;
 
-					PROCESS_INFORMATION pi;
-					STARTUPINFO si;
-					ZeroMemory(&si, sizeof(si));
-					ZeroMemory(&pi, sizeof(pi));
-					si.cb = sizeof(si);
-					si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
-					si.wShowWindow = SW_SHOW;
-
-					if (CreateProcess(exe_name.c_str(), &new_mode[0], NULL, NULL, true, 0, NULL, NULL, &si, &pi)) {
-						CloseHandle(pi.hProcess);
-						CloseHandle(pi.hThread);
-
-						show_message = true;
-						last_mode    = new_mode;
-					}
-					else {
-						DWORD errorCode = GetLastError();
-						wcout << FormatError(errorCode);
-					}
+					wstring command_line = L"start \"\" " + exe_name + L" " + new_mode;
+					_wsystem(command_line.c_str());
 				}
-				else {
-					show_message = true;
-					last_mode    = new_mode;
-				}
+
+				show_message = true;
+				last_mode    = new_mode;
 			}
 
 		}
