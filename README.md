@@ -1,48 +1,60 @@
+
 # RunExeRemotely
-Very simple solution for controlling OFP server remotely but could also be used for any other executable.
+RunExeRemotely is a simple program for starting/restarting selected program with wanted arguments from a website panel. It was made for OFP/ARMA dedicated server but it could be used with any other executable.
 
-Program uses wget to download data every couple of seconds. If the data has changed then it closes the server and starts a new instance with the new argument line.
+It downloads data every couple of seconds. If the data has changed then it closes the selected executable and starts a new instance of it with the downloaded new argument line. Optionally it can also shutdown the system. Multiple instances of RunExeRemotely can be run but they have to be in separate directories.
 
-There's also a very simple PHP script for storing and serving data. Program expects plain text argument line so you can easily replace the PHP script with your own web interface.
+# Usage
 
-Program was compiled using Microsoft Visual Studio Community 2022 Version 17.5.4
-
-## Screenshots
-
-<p align="center">
-  <kbd><img src="screenshot1.png"></kbd>
-</p>
-
-<p align="center">
-  <kbd><img src="screenshot2.png"></kbd>
-</p>
-
-## Instructions
 1. Download [binary](https://github.com/Faguss/RunExeRemotely/releases)
-2. Open ofpserverremote.php in a text editor and add your IP address to ADMIN_IP
-3. Upload ofpserverremote.php to your web server
-4. Open ofpserverremote.php in a web browser and add new data
-5. Copy RunExeRemotely.exe and wget.exe to the game directory
-6. Run RunExeRemotely.exe with url option pointing to the PHP script but with added "?arg" at the end
+2. Copy RunExeRemotelyGUI.exe to the directory with the program you want to control
+3. You can use either standalone PHP script or a Wordpress plugin
 
-### Options
+### Standalone PHP script
 
-1. Options can be passed as arguments:
+* Open ofpserverremote.php in a text editor and modify define "path_to_password_file" so that it's stored in a non-public folder. Alternatively setup .htaccess to block access to this file
+* Upload ofpserverremote.php to your web server and then open it in a browser
+* Set new password and then login with it
+* Below "Add new option" type in option name, arguments for the executable and click on the "Submit"
+* Under "List of options" click on the button with that option name
+* Copy address to the arguments
 
-```
-RunExeRemotely.exe -url=https://example.com/ofpserverremote.php?arg -exe=arma3server_x64.exe -sleep=10
-```
+<p align="center">
+  <kbd><img src="screenshots/standalonephpscript.png"></kbd>
+</p>
 
-2. Or create RunExeRemotely.cfg file and write them there:
+### Wordpress plugin
 
-```
-url=https://example.com/ofpserverremote.php?arg
-exe=arma3server_x64.exe
-sleep=10
-```
+* Upload "runexeremotely" folder to the wp-content/plugins in your Wordpress installation
+* Log in to your admin panel. Go to "Plugins"
+* Find "RunExeRemotely" in the plugin list. Activate it
+* On the left sidebar option "Run Exe Remotely" will appear. Move the cursor over it and then click on "Options - Edit"
+* Type in title, arguments for the executable and then click on "Save"
+* Select "Executables - Edit" from the sidebar
+* Type in title and then select the option you just added. Click on "Save"
+* On the top there's a button "Link to data". Right-click on it and select "Copy Link"
 
-There are three options:
+<p align="center">
+  <kbd><img src="wordpressplugin.png"></kbd>
+</p>
 
-- `url` - address from which program downloads data
-- `exe` - executable name to run. Default is `coldwarassault_server.exe`
-- `sleep` - pause time in seconds. Default is 5
+### Usage - cont.
+
+4. Launch RunExeRemotelyGUI.exe
+5. Change "Exe name" to the name of the program you want to control
+6. Below paste URL from the standalone script or Wordpress plugin
+7. Click on the "Update Config" button
+8. Setup is done! Now you can restart your selected program by activating a different option on the website
+
+<p align="center">
+  <kbd><img src="screenshots/runexeremotelygui.png"></kbd>
+</p>
+
+# Compiling
+
+Program was made with Microsoft Visual Studio Community 2022 version 17.8.6
+
+1. Open RunExeRemotely.sln in VS
+2. Select project RunExeRemotelyGUI
+3. Set active configuration to Release x86
+4. Select Build --> Build RunExeRemotelyGUI
