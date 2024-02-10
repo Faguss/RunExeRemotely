@@ -35,7 +35,7 @@ It downloads data every couple of seconds. If the data has changed then it close
 * On the top there's a button "Link to data". Right-click on it and select "Copy Link"
 
 <p align="center">
-  <kbd><img src="wordpressplugin.png"></kbd>
+  <kbd><img src="screenshots/wordpressplugin.png"></kbd>
 </p>
 
 ### Usage - cont.
